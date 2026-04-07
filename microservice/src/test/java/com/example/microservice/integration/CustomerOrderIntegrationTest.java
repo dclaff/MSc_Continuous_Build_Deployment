@@ -1,4 +1,4 @@
-package com.example.microservice;
+package com.example.microservice.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +11,18 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Integration tests for the Customer and Order REST API.
+ *
+ * Loads the full Spring application context (including the real SQLite database
+ * initialised from schema.sql / data.sql) and exercises the HTTP layer through
+ * MockMvc. These tests sit at the top of the Test Pyramid — they are slower than
+ * unit/component tests but verify the end-to-end wiring of controllers, services,
+ * repositories, and the database together.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
-public class CustomerOrderApiTest {
+public class CustomerOrderIntegrationTest {
 
     @Autowired
     private MockMvc mvc;
@@ -208,7 +217,6 @@ public class CustomerOrderApiTest {
 
     @Test
     public void deleteOrder_returns204() throws Exception {
-        // Create an order first, then delete it
         String json = """
                 { "description": "To Delete", "amount": 5.00, "orderDate": "2025-12-25" }
                 """;
@@ -218,7 +226,6 @@ public class CustomerOrderApiTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        // Extract the id from the response
         String orderId = response.replaceAll(".*\"id\":(\\d+).*", "$1");
 
         mvc.perform(delete("/api/customers/3/orders/" + orderId))
@@ -265,7 +272,6 @@ public class CustomerOrderApiTest {
 
     @Test
     public void deleteCustomer_cascadesOrderDeletion() throws Exception {
-        // Create a new customer
         String custJson = """
                 { "name": "Temp User", "email": "temp@test.com" }
                 """;
@@ -277,7 +283,6 @@ public class CustomerOrderApiTest {
 
         String custId = custResponse.replaceAll(".*\"id\":(\\d+).*", "$1");
 
-        // Create an order for that customer
         String orderJson = """
                 { "description": "Cascade Test", "amount": 10.00, "orderDate": "2025-12-31" }
                 """;
@@ -286,11 +291,9 @@ public class CustomerOrderApiTest {
                         .content(orderJson))
                 .andExpect(status().isCreated());
 
-        // Delete the customer — orders should cascade
         mvc.perform(delete("/api/customers/" + custId))
                 .andExpect(status().isNoContent());
 
-        // Customer should be gone
         mvc.perform(get("/api/customers/" + custId))
                 .andExpect(status().isNotFound());
     }
